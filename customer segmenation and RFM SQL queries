@@ -1,0 +1,458 @@
+sql
+/*
+PROJECT: Customer Segmentation and RFM Analysis
+DATABASE: CustomerRFM
+TABLE: dbo.Sales
+RFM REFERENCE DATE: 2025-12-31
+*/
+
+USE CustomerRFM
+GO
+
+/* =====================================================
+   1. DATA PROFILING
+   ===================================================== */
+
+-- 1.1 Total number of rows
+
+SELECT COUNT(*) AS Total_Rows
+FROM dbo.Sales
+
+
+-- 1.2 Inspect the first 10 rows
+
+SELECT TOP 10 *
+FROM dbo.Sales
+
+
+-- 1.3 Total unique customers
+
+SELECT COUNT(DISTINCT Customer_ID) AS Total_Customers
+FROM dbo.Sales
+
+
+-- 1.4 Total unique transactions
+
+SELECT COUNT(DISTINCT Transaction_ID) AS Total_Transactions
+FROM dbo.Sales
+
+
+-- 1.5 Transaction date range
+
+SELECT
+    MIN([Date]) AS First_Transaction_Date,
+    MAX([Date]) AS Last_Transaction_Date
+FROM dbo.Sales
+
+
+/* =====================================================
+   2. DATA QUALITY CHECKS
+   ===================================================== */
+
+-- 2.1 Check missing values
+
+
+SELECT COUNT(*) AS Missing_Date
+FROM dbo.Sales
+WHERE [Date] IS NULL
+
+
+SELECT COUNT(*) AS Missing_Amount
+FROM dbo.Sales
+WHERE Amount IS NULL
+```
+
+
+-- 2.2 Check blank customer IDs
+
+SELECT COUNT(*) AS Blank_Customer_IDs
+FROM dbo.Sales
+WHERE Customer_ID IS NULL
+   OR LTRIM(RTRIM(Customer_ID)) = ''
+
+
+-- 2.3 Check blank transaction IDs
+
+SELECT COUNT(*) AS Blank_Transaction_IDs
+FROM dbo.Sales
+WHERE Transaction_ID IS NULL
+   OR LTRIM(RTRIM(Transaction_ID)) = ''
+
+
+-- 2.4 Check duplicate transaction IDs
+
+SELECT
+    Transaction_ID,
+    COUNT(*) AS Number_Of_Rows
+FROM dbo.Sales
+GROUP BY Transaction_ID
+HAVING COUNT(*) > 1
+
+
+-- 2.5 Check whether Amount matches Quantity * PPU
+
+SELECT COUNT(*) AS Incorrect_Amount_Rows
+FROM dbo.Sales
+WHERE Amount <> Quantity * PPU
+
+
+-- 2.6 Inspect amount calculations
+
+SELECT TOP 20
+    Quantity,
+    PPU,
+    Amount,
+    Quantity * PPU AS Calculated_Amount
+FROM dbo.Sales
+
+
+-- 2.7 Check minimum and maximum quantity
+
+SELECT
+    MIN(Quantity) AS Minimum_Quantity,
+    MAX(Quantity) AS Maximum_Quantity
+FROM dbo.Sales
+
+
+-- 2.8 Inspect quantities from smallest to largest
+
+SELECT DISTINCT Quantity
+FROM dbo.Sales
+ORDER BY Quantity ASC
+
+
+-- 2.9 Inspect quantities from largest to smallest
+
+SELECT DISTINCT Quantity
+FROM dbo.Sales
+ORDER BY Quantity DESC
+
+
+/* =====================================================
+   3. RFM ANALYSIS
+   ===================================================== */
+
+-- 3.1 Number of transactions by customer
+
+SELECT
+    Customer_ID,
+    COUNT(*) AS Number_Of_Transactions
+FROM dbo.Sales
+GROUP BY Customer_ID
+ORDER BY Number_Of_Transactions DESC
+
+
+-- 3.2 Total spending by customer
+
+SELECT
+    Customer_ID,
+    SUM(Amount) AS Total_Spending
+FROM dbo.Sales
+GROUP BY Customer_ID
+ORDER BY Total_Spending DESC
+
+
+-- 3.3 Latest purchase date by customer
+
+SELECT
+    Customer_ID,
+    MAX([Date]) AS Latest_Purchase_Date
+FROM dbo.Sales
+GROUP BY Customer_ID
+
+
+-- 3.4 Calculate recency in days
+
+SELECT
+    Customer_ID,
+    MAX([Date]) AS Latest_Purchase_Date,
+    DATEDIFF(
+        DAY,
+        MAX([Date]),
+        '2025-12-31'
+    ) AS Recency
+FROM dbo.Sales
+GROUP BY Customer_ID
+ORDER BY Recency ASC
+
+
+-- 3.5 Calculate Recency, Frequency and Monetary values
+
+WITH RFM AS
+(
+    SELECT
+        Customer_ID,
+        DATEDIFF(
+            DAY,
+            MAX([Date]),
+            '2025-12-31'
+        ) AS Recency,
+        COUNT(*) AS Frequency,
+        SUM(Amount) AS Monetary
+    FROM dbo.Sales
+    GROUP BY Customer_ID
+)
+SELECT *
+FROM RFM
+ORDER BY Customer_ID
+
+
+/* =====================================================
+   4. RFM SCORING AND CUSTOMER SEGMENTATION
+   ===================================================== */
+
+-- 4.1 Create customer scores and segments
+
+IF OBJECT_ID('dbo.RFM_Segmentation', 'U') IS NOT NULL
+    DROP TABLE dbo.RFM_Segmentation
+GO
+
+WITH RFM AS
+(
+    SELECT
+        Customer_ID,
+        DATEDIFF(
+            DAY,
+            MAX([Date]),
+            '2025-12-31'
+        ) AS Recency,
+        COUNT(*) AS Frequency,
+        SUM(Amount) AS Monetary
+    FROM dbo.Sales
+    GROUP BY Customer_ID
+),
+RFM_Scored AS
+(
+    SELECT
+        Customer_ID,
+        Recency,
+        Frequency,
+        Monetary,
+        NTILE(5) OVER (
+            ORDER BY Recency DESC, Customer_ID
+        ) AS R_Score,
+        NTILE(5) OVER (
+            ORDER BY Frequency ASC, Customer_ID
+        ) AS F_Score,
+        NTILE(5) OVER (
+            ORDER BY Monetary ASC, Customer_ID
+        ) AS M_Score
+    FROM RFM
+)
+SELECT
+    Customer_ID,
+    Recency,
+    Frequency,
+    Monetary,
+    R_Score,
+    F_Score,
+    M_Score,
+    CONCAT(R_Score, F_Score, M_Score) AS RFM_Code,
+    CASE
+        WHEN R_Score = 5
+         AND F_Score = 5
+         AND M_Score = 5
+            THEN 'Champions'
+
+        WHEN R_Score >= 4
+         AND F_Score >= 4
+         AND M_Score >= 3
+            THEN 'Loyal'
+
+        WHEN R_Score >= 3
+         AND (F_Score >= 3 OR M_Score >= 3)
+            THEN 'Potential'
+
+        WHEN R_Score <= 2
+         AND (F_Score >= 4 OR M_Score >= 4)
+            THEN 'At Risk'
+
+        WHEN R_Score <= 2
+         AND F_Score <= 2
+         AND M_Score <= 2
+            THEN 'Lost'
+
+        ELSE 'Others'
+    END AS Customer_Segmentation
+INTO dbo.RFM_Segmentation
+FROM RFM_Scored
+GO
+
+
+/* =====================================================
+   5. CUSTOMER SEGMENT COUNTS
+   ===================================================== */
+
+-- 5.1 Number of customers in each segment
+
+SELECT
+    Customer_Segmentation,
+    COUNT(*) AS Number_Of_Customers
+FROM dbo.RFM_Segmentation
+GROUP BY Customer_Segmentation
+ORDER BY Number_Of_Customers DESC
+
+
+/* =====================================================
+   6. SALES AND SPENDING ANALYSIS
+   ===================================================== */
+
+-- 6.1 Total sales by segment
+
+SELECT
+    r.Customer_Segmentation,
+    SUM(s.Amount) AS Total_Sales
+FROM dbo.Sales s
+JOIN dbo.RFM_Segmentation r
+    ON s.Customer_ID = r.Customer_ID
+GROUP BY r.Customer_Segmentation
+ORDER BY Total_Sales DESC
+
+
+-- 6.2 Average customer spending by segment
+
+SELECT
+    Customer_Segmentation,
+    AVG(Monetary) AS Average_Customer_Spending
+FROM dbo.RFM_Segmentation
+GROUP BY Customer_Segmentation
+ORDER BY Average_Customer_Spending DESC
+
+
+-- 6.3 Average transaction value by segment
+
+SELECT
+    r.Customer_Segmentation,
+    AVG(s.Amount) AS Average_Transaction_Value
+FROM dbo.Sales s
+JOIN dbo.RFM_Segmentation r
+    ON s.Customer_ID = r.Customer_ID
+GROUP BY r.Customer_Segmentation
+ORDER BY Average_Transaction_Value DESC
+
+
+-- 6.4 Average recency by segment
+
+SELECT
+    Customer_Segmentation,
+    AVG(Recency) AS Average_Recency_Days
+FROM dbo.RFM_Segmentation
+GROUP BY Customer_Segmentation
+ORDER BY Average_Recency_Days ASC
+
+
+-- 6.5 Average frequency by segment
+
+SELECT
+    Customer_Segmentation,
+    AVG(Frequency) AS Average_Frequency
+FROM dbo.RFM_Segmentation
+GROUP BY Customer_Segmentation
+ORDER BY Average_Frequency DESC
+
+
+/* =====================================================
+   7. CUSTOMER SHARE AND SALES CONTRIBUTION
+   ===================================================== */
+
+-- 7.1 Customer percentage and sales percentage by segment
+
+WITH Segment_Summary AS
+(
+    SELECT
+        r.Customer_Segmentation,
+        COUNT(DISTINCT r.Customer_ID) AS Customers,
+        SUM(s.Amount) AS Total_Sales,
+        COUNT(DISTINCT s.Transaction_ID) AS Transactions
+    FROM dbo.RFM_Segmentation r
+    JOIN dbo.Sales s
+        ON r.Customer_ID = s.Customer_ID
+    GROUP BY r.Customer_Segmentation
+)
+SELECT
+    Customer_Segmentation,
+    Customers,
+    Total_Sales,
+    Transactions,
+    100.0 * Customers / SUM(Customers) OVER ()
+        AS Customer_Percentage,
+    100.0 * Total_Sales / SUM(Total_Sales) OVER ()
+        AS Sales_Percentage,
+    1.0 * Total_Sales / NULLIF(Transactions, 0)
+        AS Average_Transaction_Value
+FROM Segment_Summary
+ORDER BY Total_Sales DESC
+
+
+-- 7.2 Average RFM scores by segment
+
+SELECT
+    Customer_Segmentation,
+    AVG(R_Score) AS Average_R_Score,
+    AVG(F_Score) AS Average_F_Score,
+    AVG(M_Score) AS Average_M_Score
+FROM dbo.RFM_Segmentation
+GROUP BY Customer_Segmentation
+ORDER BY Average_R_Score DESC
+
+
+-- 7.3 Percentage of total spending by segment
+
+WITH Segment_Spending AS
+(
+    SELECT
+        r.Customer_Segmentation,
+        SUM(s.Amount) AS Total_Spending
+    FROM dbo.RFM_Segmentation r
+    JOIN dbo.Sales s
+        ON r.Customer_ID = s.Customer_ID
+    GROUP BY r.Customer_Segmentation
+)
+SELECT
+    Customer_Segmentation,
+    Total_Spending,
+    CAST(
+        100.0 * Total_Spending
+        / SUM(Total_Spending) OVER ()
+        AS DECIMAL(6,2)
+    ) AS Spending_Percentage
+FROM Segment_Spending
+ORDER BY Total_Spending DESC
+
+
+/* =====================================================
+   8. REGION AND CUSTOMER SEGMENT ANALYSIS
+   ===================================================== */
+
+SELECT
+    s.Region,
+    r.Customer_Segmentation,
+    COUNT(DISTINCT s.Customer_ID) AS Number_Of_Customers,
+    COUNT(DISTINCT s.Transaction_ID) AS Number_Of_Transactions,
+    SUM(s.Amount) AS Total_Sales
+FROM dbo.Sales s
+JOIN dbo.RFM_Segmentation r
+    ON s.Customer_ID = r.Customer_ID
+GROUP BY
+    s.Region,
+    r.Customer_Segmentation
+ORDER BY
+    s.Region,
+    Total_Sales DESC
+
+
+/* =====================================================
+   9. FINAL CUSTOMER SEGMENT SUMMARY
+   ===================================================== */
+
+SELECT
+    Customer_Segmentation,
+    COUNT(*) AS Number_Of_Customers,
+    SUM(Monetary) AS Total_Customer_Spending,
+    AVG(Recency) AS Average_Recency_Days,
+    AVG(Frequency) AS Average_Frequency,
+    AVG(Monetary) AS Average_Customer_Spending
+FROM dbo.RFM_Segmentation
+GROUP BY Customer_Segmentation
+ORDER BY Total_Customer_Spending DESC
+```
