@@ -67,3 +67,85 @@ The campaign results are simulated for learning purposes. They are not results f
 ## 11. RFM Reference Date
 
 31 December 2025.
+
+
+## Marketing Campaign ROI Analysis (Synthetic Data)
+
+### Project Overview
+As an extension of my Customer Segmentation using RFM Analysis project, I developed a Marketing Campaign ROI Analysis to understand how a hypothetical marketing budget could be allocated across different customer segments and how campaign performance could be evaluated.
+
+Since the original sales dataset did not contain marketing campaign costs or conversion data, I created a **synthetic campaign dataset** for demonstration and analysis purposes.
+
+### Tools Used
+- **SQL Server (SSMS):** Data preparation, campaign calculations, budget allocation, and ROI analysis.
+- **Power BI:** KPI cards, campaign ROI comparison, budget allocation, and conversion rate visualizations.
+- **Excel:** Preparation of the synthetic campaign dataset.
+
+### Project Steps
+
+**1. Created Synthetic Campaign Data**
+
+Created hypothetical campaign records for six customer segments:
+- Champions
+- Loyal
+- Potential
+- At Risk
+- Lost
+- Others
+
+The dataset included customers targeted, customers converted, revenue, product cost, and campaign cost.
+
+**2. Calculated Campaign Performance Using SQL**
+
+Used SQL to calculate:
+- Conversion Rate
+- Net Profit
+- Return on Investment (ROI)
+
+
+**3. Allocated a Hypothetical Marketing Budget**
+
+Proposed a total marketing budget of **₹1,00,000** across the six customer segments.
+
+loyal=25000
+potential=25000
+champions=15000
+atrisk=20000
+lost=5000
+others =10000
+total = 100000
+This allocation was a proposed strategy for analysis, not an actual marketing spend.
+
+**4. Created a Marketing Campaign ROI Dashboard in Power BI**
+
+Developed a dashboard to compare campaign performance across customer segments using:
+- Total Revenue
+- Total Campaign Cost
+- Total Net Profit
+- Proposed Marketing Budget
+- ROI by Customer Segment
+- Budget Allocation by Customer Segment
+- Conversion Rate by Customer Segment
+
+### Key Findings
+
+- The hypothetical campaigns generated total revenue of ₹2,27,300.
+- Total campaign cost was ₹80,000.
+- Total net profit was ₹10,920.
+- Champions recorded the highest ROI at 140%, followed by Loyal customers at 125%.
+- Potential customers generated a positive ROI of approximately 46.67%.
+- At Risk and Lost segments recorded negative ROI in the simulated campaign results, indicating that their campaign strategies and costs would need further evaluation.
+
+### Business Recommendations
+
+- Evaluate retention campaigns for Champions and Loyal customers, who showed the strongest simulated ROI.
+- Test targeted campaigns for Potential customers to encourage repeat purchases.
+- Review campaign messaging, incentives, and costs for At Risk and Lost customers before increasing investment.
+
+
+### Important Note
+
+**This project uses synthetic campaign data and hypothetical budget allocations for learning and portfolio demonstration.** The campaign revenue, product costs, campaign costs, conversions, net profit, and ROI are simulated values, not actual campaign results. The proposed ₹1,00,000 budget is a planning scenario and is separate from the ₹80,000 simulated campaign cost used in the ROI calculations.
+
+### Skills Demonstrated
+SQL querying, data aggregation, calculated business metrics, customer segmentation, marketing budget allocation, ROI analysis, Power BI dashboard development, and business insight generation.
