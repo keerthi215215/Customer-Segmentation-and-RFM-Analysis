@@ -1,4 +1,4 @@
-# Customer-Segmentation-and-RFM-Analysis
+# Customer-Segmentation-and-RFM-Analysis and marketing_campaign_ROI analysis
 Customer Segmentation and RFM Analysis using SQL Server and Power BI, including customer insights and retention recommendations.
 
 ## 1. Project Overview
