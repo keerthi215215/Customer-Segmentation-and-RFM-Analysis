@@ -1,0 +1,23 @@
+
+select Customer_Segment, customers_targeted,customers_converted , (customers_converted * 100.0/Customers_Targeted ) as convertion_rate from Campaign_ROI
+ select customer_segment, revenue,product_cost,campaign_cost ,(revenue-product_cost-campaign_cost ) as net_profit from Campaign_ROI
+ select customer_segment,campaign_cost,( revenue - product_cost-Campaign_Cost) as net_profit,(( revenue - product_cost - Campaign_Cost)* 100.0 /campaign_cost) as roi from Campaign_ROI order by roi desc
+
+ select Customer_Segment , case 
+ when customer_segment = 'champions' then 15000
+ when customer_segment = 'loyal' then 25000
+ when customer_segment ='potential' then 25000
+ when customer_segment ='at risk' then 20000
+ when customer_segment ='others' then 10000
+ when customer_segment ='lost' then 5000
+ end as budget_allocation ,
+ (revenue - product_cost - campaign_cost ) as net_profit,( (revenue - product_cost - campaign_cost) * 100.0/Campaign_Cost) as roi  into market_budget from Campaign_ROI 
+ 
+
+ select sum(revenue) as total_revenue,sum(product_cost) as total_product_cost,sum(Campaign_cost) as total_campaign_cost
+ , sum(( revenue - product_cost-Campaign_Cost) ) as total_net_profit from Campaign_ROI
+
+  select * from market_budget
+
+
+   select sum(budget_allocation) from market_budget
